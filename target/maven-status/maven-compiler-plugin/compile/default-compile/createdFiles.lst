@@ -1,0 +1,16 @@
+newgen\decayregion\command\DecayRegionCommand.class
+newgen\decayregion\listener\EntityDecayListener.class
+newgen\decayregion\region\DecayRegion.class
+newgen\decayregion\manager\PlacedDataStore.class
+newgen\decayregion\gui\DecayMenuGUI.class
+newgen\decayregion\manager\BlockDecayManager.class
+newgen\decayregion\DecayRegionPlugin.class
+newgen\decayregion\listener\DecayRegionListener$1.class
+newgen\decayregion\util\MessageUtil.class
+newgen\decayregion\gui\DecayMenuListener.class
+newgen\decayregion\util\BlockKey.class
+newgen\decayregion\manager\BlockDecayManager$1.class
+newgen\decayregion\region\RegionManager.class
+newgen\decayregion\selection\SelectionManager.class
+newgen\decayregion\listener\DecayRegionListener.class
+newgen\decayregion\manager\RegionSnapshotStore.class

@@ -1,0 +1,17 @@
+name: Newgen-Decay-Region
+main: newgen.decayregion.DecayRegionPlugin
+version: 1.0.0
+api-version: '1.21'
+author: Newgen
+description: Custom decay region plugin converted from Skript.
+
+commands:
+  decay:
+    description: Manage decay regions
+    usage: /decay help
+    aliases: []
+
+permissions:
+  decayregion.admin:
+    description: Allows managing decay regions
+    default: op

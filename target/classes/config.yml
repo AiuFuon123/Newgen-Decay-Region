@@ -1,0 +1,29 @@
+prefix: "&7[&bDecayRegion&7] "
+
+create-region-title: "&aTạo khu vực thành công!"
+create-region-subtitle: "&7Tên: &e%name%"
+
+create-region-sound: "minecraft:entity.player.levelup"
+
+placed-data:
+  flush-seconds: 5
+
+decay:
+  formed-blocks-only-from-tracked-fluids: true
+  fluids:
+    max-flood-blocks: 500000
+
+deny-place:
+  boats: false
+  minecarts: false
+  end-crystals: false
+
+force-clear-on-startup: true
+default-decay-seconds: 30
+
+force-clear:
+  max-flood-blocks: 2000000
+
+snapshot:
+  max-volume: 200000
+  save-non-air-only: false
