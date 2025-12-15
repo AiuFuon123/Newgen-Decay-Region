@@ -48,7 +48,6 @@ public class EntityDecayListener implements Listener {
         DecayRegion region = regionManager.getRegionAt(entity.getLocation());
         if (region == null) return;
 
-        // deny
         if ((isBoat && denyBoats) || (isMinecart && denyMinecarts) || (isCrystal && denyEndCrystals)) {
             event.setCancelled(true);
             return;
@@ -78,7 +77,6 @@ public class EntityDecayListener implements Listener {
 
             if (current instanceof Vehicle v) v.eject();
 
-            // ✅ drop item trước khi remove
             dropEntityItem(current);
 
             current.remove();
@@ -92,27 +90,20 @@ public class EntityDecayListener implements Listener {
 
         Material drop = null;
 
-        // ChestBoat / Boat
         if (e instanceof ChestBoat cb) {
-            String type = cb.getBoatType().name(); // OAK, SPRUCE...
+            String type = cb.getBoatType().name();
             drop = Material.matchMaterial(type + "_CHEST_BOAT");
         } else if (e instanceof Boat b) {
             String type = b.getBoatType().name();
             drop = Material.matchMaterial(type + "_BOAT");
-        }
-
-        // Minecart variants
-        else if (e instanceof Minecart mc) {
+        } else if (e instanceof Minecart mc) {
             if (mc instanceof StorageMinecart) drop = Material.CHEST_MINECART;
             else if (mc instanceof HopperMinecart) drop = Material.HOPPER_MINECART;
             else if (mc instanceof ExplosiveMinecart) drop = Material.TNT_MINECART;
-            else if (mc instanceof PoweredMinecart) drop = Material.MINECART;   // furnace minecart item thường không dùng -> fallback
-            else if (mc instanceof CommandMinecart) drop = Material.MINECART;   // fallback
+            else if (mc instanceof PoweredMinecart) drop = Material.MINECART;
+            else if (mc instanceof CommandMinecart) drop = Material.MINECART;
             else drop = Material.MINECART;
-        }
-
-        // End Crystal
-        else if (e instanceof EnderCrystal) {
+        } else if (e instanceof EnderCrystal) {
             drop = Material.END_CRYSTAL;
         }
 

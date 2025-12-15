@@ -117,7 +117,6 @@ public class RegionManager {
         return null;
     }
 
-    // ✅ Overlap check
     public boolean isOverlapping(DecayRegion candidate) {
         if (candidate == null) return false;
 
@@ -137,7 +136,6 @@ public class RegionManager {
         return x && y && z;
     }
 
-    // ✅ NEW: rename region (chỉ đổi key + name, không đổi coords)
     public boolean renameRegion(String oldName, String newName) {
         if (oldName == null || newName == null) return false;
 

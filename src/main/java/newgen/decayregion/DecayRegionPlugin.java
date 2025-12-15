@@ -27,7 +27,6 @@ public class DecayRegionPlugin extends JavaPlugin {
     private SelectionManager selectionManager;
     private PlacedDataStore placedDataStore;
 
-    // ✅ snapshot store (DB)
     private RegionSnapshotStore snapshotStore;
 
     @Override
@@ -42,13 +41,11 @@ public class DecayRegionPlugin extends JavaPlugin {
         regionManager = new RegionManager(this);
         regionManager.loadRegions();
 
-        // ✅ NEW: snapshot store load (DB)
         snapshotStore = new RegionSnapshotStore(this);
 
         placedDataStore = new PlacedDataStore(this, regionManager);
         placedDataStore.forceClearAllOnStartupIfEnabled();
 
-        // ✅ restore snapshot sau khi startup force clear
         for (DecayRegion r : regionManager.getRegions()) {
             snapshotStore.restoreRegion(r);
         }
@@ -56,7 +53,6 @@ public class DecayRegionPlugin extends JavaPlugin {
         selectionManager = new SelectionManager();
         blockDecayManager = new BlockDecayManager(this, regionManager, placedDataStore);
 
-        // listeners
         getServer().getPluginManager().registerEvents(
                 new DecayRegionListener(regionManager, blockDecayManager, selectionManager), this
         );
@@ -67,7 +63,6 @@ public class DecayRegionPlugin extends JavaPlugin {
                 new EntityDecayListener(this, regionManager), this
         );
 
-        // command
         PluginCommand cmd = getCommand("decay");
         if (cmd != null) {
             DecayRegionCommand executor = new DecayRegionCommand(regionManager, selectionManager, this);
@@ -75,7 +70,6 @@ public class DecayRegionPlugin extends JavaPlugin {
             cmd.setTabCompleter(executor);
         }
 
-        // ✅ flush placed-data theo chu kỳ để giảm lag IO
         int flushSeconds = getCfg().getInt("placed-data.flush-seconds", 5);
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (placedDataStore != null) placedDataStore.flushIfDirty();
@@ -106,14 +100,11 @@ public class DecayRegionPlugin extends JavaPlugin {
         if (!file.exists()) saveResource("decay_region.yml", false);
     }
 
-    // ✅ reload plugin config + stores
     public void reloadPlugin() {
         reloadConfig();
 
-        // reload regions từ file
         regionManager.loadRegions();
 
-        // reload stores
         if (snapshotStore != null) snapshotStore.reload();
         if (placedDataStore != null) placedDataStore.reload();
     }

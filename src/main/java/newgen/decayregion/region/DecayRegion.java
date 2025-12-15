@@ -42,14 +42,10 @@ public class DecayRegion {
     public int getMinX() { return minX; }
     public int getMinY() { return minY; }
     public int getMinZ() { return minZ; }
-
     public int getMaxX() { return maxX; }
     public int getMaxY() { return maxY; }
     public int getMaxZ() { return maxZ; }
-
     public int getDecaySeconds() { return decaySeconds; }
-
-    // ✅ needed for rename + GUI time editor
     public void setName(String name) { this.name = name; }
     public void setDecaySeconds(int decaySeconds) { this.decaySeconds = decaySeconds; }
 }

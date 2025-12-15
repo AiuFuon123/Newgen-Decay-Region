@@ -1,29 +1,46 @@
+# Prefix used by the plugin when sending chat messages
 prefix: "&7[&bDecayRegion&7] "
 
-create-region-title: "&aTạo khu vực thành công!"
-create-region-subtitle: "&7Tên: &e%name%"
+# Title shown to the player when creating a region successfully
+create-region-title: "&aRegion created successfully!"
+# Subtitle shown to the player when creating a region successfully
+# Use %name% to insert the region name
+create-region-subtitle: "&7Name: &e%name%"
 
+# Sound played when a region is created (namespaced Minecraft sound key)
 create-region-sound: "minecraft:entity.player.levelup"
 
 placed-data:
+  # How often (in seconds) the placed-data database should be flushed/committed
   flush-seconds: 5
 
 decay:
+  # If true: only decay blocks formed from tracked fluids (not all fluids)
   formed-blocks-only-from-tracked-fluids: true
   fluids:
+    # Maximum flood-fill operations when clearing fluids generated/spread from sources
     max-flood-blocks: 500000
 
 deny-place:
+  # If true: prevent placing boats inside decay regions
   boats: false
+  # If true: prevent placing minecarts inside decay regions
   minecarts: false
+  # If true: prevent placing end crystals inside decay regions
   end-crystals: false
 
+# If true: when the server starts, the plugin will force-clear tracked blocks/entities/fluids (from the database)
 force-clear-on-startup: true
+
+# Default decay time (seconds) for newly created regions
 default-decay-seconds: 30
 
 force-clear:
+  # Maximum flood-fill operations when force-clearing fluids for a region
   max-flood-blocks: 2000000
 
 snapshot:
+  # Maximum allowed region volume (blocks) to snapshot; larger regions will be refused
   max-volume: 200000
+  # If true: snapshot only non-air blocks (smaller snapshot size, faster)
   save-non-air-only: false

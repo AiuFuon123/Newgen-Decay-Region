@@ -47,14 +47,14 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
                              String[] args) {
 
         if (!(sender instanceof Player)) {
-            MessageUtil.send(sender, "&cChỉ dùng trong game.");
+            MessageUtil.send(sender, "&cIn-game only.");
             return true;
         }
 
         Player player = (Player) sender;
 
         if (!player.hasPermission("decayregion.admin")) {
-            MessageUtil.send(player, "&cBạn không có quyền sử dụng lệnh này.");
+            MessageUtil.send(player, "&cYou don't have permission to use this command.");
             return true;
         }
 
@@ -71,12 +71,12 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
 
             case "reload" -> {
                 plugin.reloadPlugin();
-                MessageUtil.send(player, "&aĐã reload config + regions + placed-data + snapshots.");
+                MessageUtil.send(player, "&aReloaded config + regions + placed-data + snapshots.");
             }
 
             case "reset" -> {
                 if (args.length < 2) {
-                    MessageUtil.send(player, "&cDùng: &e/decay reset <tên>");
+                    MessageUtil.send(player, "&cUsage: &e/decay reset <name>");
                     return true;
                 }
                 resetRegion(player, args[1]);
@@ -84,7 +84,7 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
 
             case "create" -> {
                 if (args.length < 2) {
-                    MessageUtil.send(player, "&cDùng: &e/decay create <tên>");
+                    MessageUtil.send(player, "&cUsage: &e/decay create <name>");
                     return true;
                 }
                 createRegion(player, args[1]);
@@ -94,16 +94,13 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
 
             case "remove" -> {
                 if (args.length < 2) {
-                    MessageUtil.send(player, "&cDùng: &e/decay remove <tên>");
+                    MessageUtil.send(player, "&cUsage: &e/decay remove <name>");
                     return true;
                 }
                 removeRegion(player, args[1]);
             }
 
-            case "menu" -> {
-                // ✅ GUI CŨ: mở main menu trang 1
-                DecayMenuGUI.openMain(player, plugin, regionManager, 1);
-            }
+            case "menu" -> DecayMenuGUI.openMain(player, plugin, regionManager, 1);
 
             default -> sendHelp(player);
         }
@@ -112,15 +109,15 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendHelp(Player player) {
-        MessageUtil.send(player, "&e/decay wand &7- Nhận wand blaze_rod để chọn vùng.");
-        MessageUtil.send(player, "&7   Left-click block: đặt pos1");
-        MessageUtil.send(player, "&7   Right-click block: đặt pos2");
-        MessageUtil.send(player, "&e/decay create <tên> &7- Tạo khu vực decay từ pos1-pos2.");
-        MessageUtil.send(player, "&e/decay list &7- Xem danh sách khu vực.");
-        MessageUtil.send(player, "&e/decay remove <tên> &7- Xóa khu vực.");
-        MessageUtil.send(player, "&e/decay menu &7- Mở GUI quản lý region.");
-        MessageUtil.send(player, "&e/decay reset <tên> &7- ForceClear + Restore snapshot (như restart).");
-        MessageUtil.send(player, "&e/decay reload &7- Reload config + dữ liệu plugin.");
+        MessageUtil.send(player, "&e/decay wand &7- Get a blaze_rod wand to select a region.");
+        MessageUtil.send(player, "&7   Left-click block: set pos1");
+        MessageUtil.send(player, "&7   Right-click block: set pos2");
+        MessageUtil.send(player, "&e/decay create <name> &7- Create a decay region from pos1-pos2.");
+        MessageUtil.send(player, "&e/decay list &7- View all regions.");
+        MessageUtil.send(player, "&e/decay remove <name> &7- Remove a region.");
+        MessageUtil.send(player, "&e/decay menu &7- Open the region management GUI.");
+        MessageUtil.send(player, "&e/decay reset <name> &7- ForceClear + Restore snapshot (like restart).");
+        MessageUtil.send(player, "&e/decay reload &7- Reload config + plugin data.");
     }
 
     private void giveWand(Player player) {
@@ -134,13 +131,13 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
         }
 
         player.getInventory().addItem(wand);
-        MessageUtil.send(player, "&aĐã cho bạn &bDecayRegion Wand&a.");
+        MessageUtil.send(player, "&aYou have received &bDecayRegion Wand&a.");
     }
 
     private void resetRegion(Player player, String name) {
         DecayRegion region = regionManager.getRegion(name);
         if (region == null) {
-            MessageUtil.send(player, "&cKhông tìm thấy khu vực &e" + name + "&c.");
+            MessageUtil.send(player, "&cRegion not found: &e" + name + "&c.");
             return;
         }
 
@@ -151,12 +148,12 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
             plugin.getSnapshotStore().restoreRegion(region);
         }
 
-        MessageUtil.send(player, "&aĐã reset region &e" + region.getName() + "&a.");
+        MessageUtil.send(player, "&aRegion reset: &e" + region.getName() + "&a.");
     }
 
     private void createRegion(Player player, String name) {
         if (regionManager.getRegion(name) != null) {
-            MessageUtil.send(player, "&cTên khu vực &e" + name + "&c đã tồn tại.");
+            MessageUtil.send(player, "&cRegion name &e" + name + "&c already exists.");
             return;
         }
 
@@ -165,13 +162,13 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
         Location p2 = selectionManager.getPos2(uid);
 
         if (p1 == null || p2 == null) {
-            MessageUtil.send(player, "&cBạn cần chọn cả pos1 và pos2 bằng wand trước.");
+            MessageUtil.send(player, "&cYou must select both pos1 and pos2 with the wand first.");
             return;
         }
 
         if (p1.getWorld() == null || p2.getWorld() == null
                 || !p1.getWorld().getName().equals(p2.getWorld().getName())) {
-            MessageUtil.send(player, "&cPos1 và pos2 phải cùng 1 world.");
+            MessageUtil.send(player, "&cPos1 and pos2 must be in the same world.");
             return;
         }
 
@@ -195,7 +192,7 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
         );
 
         if (regionManager.isOverlapping(region)) {
-            MessageUtil.send(player, "&cKhông thể tạo region &e" + name + "&c vì đang trùng với một region khác.");
+            MessageUtil.send(player, "&cCannot create region &e" + name + "&c because it overlaps another region.");
             return;
         }
 
@@ -205,10 +202,10 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
             plugin.getSnapshotStore().snapshotRegion(region);
         }
 
-        MessageUtil.send(player, "&aĐã tạo khu vực decay &e" + name + " &atrong world &e" + world.getName() + "&a.");
+        MessageUtil.send(player, "&aCreated decay region &e" + name + " &ain world &e" + world.getName() + "&a.");
 
-        String title = plugin.getConfig().getString("create-region-title", "&aTạo khu vực thành công!");
-        String subtitle = plugin.getConfig().getString("create-region-subtitle", "&7Tên: &e%name%");
+        String title = plugin.getConfig().getString("create-region-title", "&aRegion created!");
+        String subtitle = plugin.getConfig().getString("create-region-subtitle", "&7Name: &e%name%");
         subtitle = subtitle.replace("%name%", name);
 
         player.sendTitle(
@@ -240,10 +237,10 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
 
     private void listRegions(Player player) {
         if (regionManager.getRegions().isEmpty()) {
-            MessageUtil.send(player, "&7Hiện chưa có khu vực nào.");
+            MessageUtil.send(player, "&7There are no regions yet.");
             return;
         }
-        MessageUtil.send(player, "&aDanh sách khu vực decay:");
+        MessageUtil.send(player, "&aDecay regions:");
         regionManager.getRegions().forEach(r ->
                 MessageUtil.send(player, "&e- " + r.getName() + " &7(world: " + r.getWorldName() + ", decay: " + r.getDecaySeconds() + "s)")
         );
@@ -252,9 +249,9 @@ public class DecayRegionCommand implements CommandExecutor, TabCompleter {
     private void removeRegion(Player player, String name) {
         boolean removed = regionManager.removeRegion(name);
         if (removed) {
-            MessageUtil.send(player, "&aĐã xóa khu vực &e" + name + "&a.");
+            MessageUtil.send(player, "&aRemoved region &e" + name + "&a.");
         } else {
-            MessageUtil.send(player, "&cKhông tìm thấy khu vực &e" + name + "&c.");
+            MessageUtil.send(player, "&cRegion not found: &e" + name + "&c.");
         }
     }
 

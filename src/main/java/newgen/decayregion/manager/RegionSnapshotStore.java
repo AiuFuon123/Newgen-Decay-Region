@@ -3,39 +3,24 @@ package newgen.decayregion.manager;
 import newgen.decayregion.DecayRegionPlugin;
 import newgen.decayregion.region.DecayRegion;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 
 import java.io.File;
 import java.sql.*;
+import java.util.logging.Level;
 
-/**
- * Snapshot region -> lưu toàn bộ block (material + blockdata string) vào SQLite (data.db).
- * Restore region -> đọc DB và set lại block.
- *
- * Tối ưu:
- * - WAL + synchronous NORMAL
- * - Batch insert
- * - Xóa snapshot cũ trước khi insert snapshot mới
- *
- * Tương thích 1.21 -> 1.21.8:
- * - Khi restore: ưu tiên parse blockdata string
- * - Nếu blockdata không parse được (khác version, ví dụ leaf_litter): fallback về Material
- * - Nếu Material cũng không tồn tại ở version đó: AIR
- */
 public class RegionSnapshotStore {
 
     private final DecayRegionPlugin plugin;
     private final File dbFile;
     private Connection conn;
 
-    private volatile boolean schemaReady = false;
-
     public RegionSnapshotStore(DecayRegionPlugin plugin) {
         this.plugin = plugin;
-        this.dbFile = new File(plugin.getDataFolder(), "data.db"); // dùng chung file DB
+        this.dbFile = new File(plugin.getDataFolder(), "data.db");
         reload();
     }
 
@@ -44,286 +29,182 @@ public class RegionSnapshotStore {
     // =========================
 
     public synchronized void reload() {
-        closeQuietly();
+        close();
 
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
+            if (!plugin.getDataFolder().exists()) {
+                plugin.getDataFolder().mkdirs();
+            }
 
-            this.conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
-            this.conn.setAutoCommit(true);
+            conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+            conn.setAutoCommit(true);
 
-            initPragmas();
+            try (Statement st = conn.createStatement()) {
+                st.execute("PRAGMA journal_mode=WAL;");
+                st.execute("PRAGMA synchronous=NORMAL;");
+                st.execute("PRAGMA temp_store=MEMORY;");
+            }
+
             initSchema();
-            schemaReady = true;
 
-            // snapshot thường insert nhiều -> chuyển sang autoCommit=false để batch commit
-            this.conn.setAutoCommit(false);
+            conn.setAutoCommit(false);
 
         } catch (Exception e) {
-            schemaReady = false;
-            plugin.getLogger().severe("[RegionSnapshotStore] Cannot open/init data.db: " + e.getMessage());
+            plugin.getLogger().log(Level.SEVERE, "[SnapshotStore] Cannot open data.db", e);
+            conn = null;
         }
     }
 
     public synchronized void close() {
         try {
-            if (conn != null && !conn.getAutoCommit()) {
+            if (conn != null) {
                 conn.commit();
+                conn.close();
             }
         } catch (Exception ignored) {}
-        closeQuietly();
-    }
-
-    private void closeQuietly() {
-        try {
-            if (conn != null) conn.close();
-        } catch (Exception ignored) {}
         conn = null;
-        schemaReady = false;
-    }
-
-    // =========================
-    // PRAGMA + SCHEMA
-    // =========================
-
-    private void initPragmas() {
-        try (Statement st = conn.createStatement()) {
-            st.execute("PRAGMA journal_mode=WAL;");
-            st.execute("PRAGMA synchronous=NORMAL;");
-            st.execute("PRAGMA temp_store=MEMORY;");
-            st.execute("PRAGMA foreign_keys=ON;");
-        } catch (Exception e) {
-            plugin.getLogger().warning("[RegionSnapshotStore] PRAGMA failed: " + e.getMessage());
-        }
     }
 
     private void initSchema() throws SQLException {
         try (Statement st = conn.createStatement()) {
-            st.execute(
-                    "CREATE TABLE IF NOT EXISTS region_snapshots (" +
-                            "region TEXT NOT NULL," +
-                            "world  TEXT NOT NULL," +
-                            "x      INTEGER NOT NULL," +
-                            "y      INTEGER NOT NULL," +
-                            "z      INTEGER NOT NULL," +
-                            "material TEXT NOT NULL," +
-                            "blockdata TEXT," +
-                            "PRIMARY KEY(region, world, x, y, z)" +
-                            ");"
-            );
-            st.execute("CREATE INDEX IF NOT EXISTS idx_snap_region_world ON region_snapshots(region, world);");
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS region_snapshots (
+                    region TEXT NOT NULL,
+                    world  TEXT NOT NULL,
+                    x      INTEGER NOT NULL,
+                    y      INTEGER NOT NULL,
+                    z      INTEGER NOT NULL,
+                    type   TEXT NOT NULL,
+                    data   INTEGER NOT NULL,
+                    PRIMARY KEY(region, world, x, y, z)
+                );
+            """);
+
+            st.execute("CREATE INDEX IF NOT EXISTS idx_snapshot_region ON region_snapshots(region);");
         }
     }
 
-    private boolean tableExists(String table) {
-        if (conn == null) return false;
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1"
-        )) {
-            ps.setString(1, table);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        } catch (Exception ignored) {
+    public synchronized boolean snapshotRegion(DecayRegion region) {
+        if (conn == null || region == null) return false;
+
+        World world = Bukkit.getWorld(region.getWorldName());
+        if (world == null) return false;
+
+        long volume =
+                (long) (region.getMaxX() - region.getMinX() + 1)
+                        * (long) (region.getMaxY() - region.getMinY() + 1)
+                        * (long) (region.getMaxZ() - region.getMinZ() + 1);
+
+        long maxVolume = plugin.getCfg().getLong("snapshot.max-volume", 200_000L);
+        if (volume > maxVolume) {
+            plugin.getLogger().warning("[SnapshotStore] Snapshot refused: region "
+                    + region.getName() + " volume=" + volume + " > " + maxVolume);
             return false;
         }
-    }
 
-    private synchronized void ensureSchema() {
-        if (conn == null) return;
-        if (schemaReady && tableExists("region_snapshots")) return;
+        boolean nonAirOnly = plugin.getCfg().getBoolean("snapshot.save-non-air-only", false);
+        String key = region.getName().toLowerCase();
 
         try {
-            boolean prev = conn.getAutoCommit();
-            conn.setAutoCommit(true);
-            initSchema();
-            conn.setAutoCommit(prev);
-            schemaReady = true;
-            plugin.getLogger().info("[RegionSnapshotStore] Schema ensured (region_snapshots created).");
-        } catch (Exception e) {
-            schemaReady = false;
-            plugin.getLogger().severe("[RegionSnapshotStore] ensureSchema failed: " + e.getMessage());
-        }
-    }
 
-    // =========================
-    // API
-    // =========================
+            try (PreparedStatement del = conn.prepareStatement(
+                    "DELETE FROM region_snapshots WHERE region=?")) {
+                del.setString(1, key);
+                del.executeUpdate();
+            }
 
-    /** Alias để tương thích code GUI cũ có gọi saveRegion(...) */
-    public boolean saveRegion(DecayRegion region) {
-        return snapshotRegion(region);
-    }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO region_snapshots(region, world, x, y, z, type, data) VALUES(?,?,?,?,?,?,?)")) {
 
-    /**
-     * Chụp snapshot toàn bộ region và lưu vào DB.
-     * Trả false nếu region/world không hợp lệ hoặc quá lớn.
-     */
-    public synchronized boolean snapshotRegion(DecayRegion region) {
-        if (region == null) return false;
-        if (conn == null) return false;
+                for (int x = region.getMinX(); x <= region.getMaxX(); x++) {
+                    for (int y = region.getMinY(); y <= region.getMaxY(); y++) {
+                        for (int z = region.getMinZ(); z <= region.getMaxZ(); z++) {
 
-        ensureSchema();
+                            Block b = world.getBlockAt(x, y, z);
+                            Material mat = b.getType();
 
-        World w = Bukkit.getWorld(region.getWorldName());
-        if (w == null) return false;
+                            if (nonAirOnly && mat == Material.AIR) continue;
 
-        long sizeX = (long) region.getMaxX() - region.getMinX() + 1L;
-        long sizeY = (long) region.getMaxY() - region.getMinY() + 1L;
-        long sizeZ = (long) region.getMaxZ() - region.getMinZ() + 1L;
-        long volume = sizeX * sizeY * sizeZ;
-
-        long maxVolume = plugin.getCfg().getLong("snapshot.max-volume", 300_000L);
-        if (volume > maxVolume) {
-            plugin.getLogger().warning("[RegionSnapshotStore] Snapshot refused (too large) region=" + region.getName()
-                    + " volume=" + volume + " > max-volume=" + maxVolume);
-            return false;
-        }
-
-
-        String r = region.getName().toLowerCase();
-
-        try (PreparedStatement del = conn.prepareStatement("DELETE FROM region_snapshots WHERE region=?");
-             PreparedStatement ins = conn.prepareStatement(
-                     "INSERT OR REPLACE INTO region_snapshots(region, world, x, y, z, material, blockdata) VALUES(?,?,?,?,?,?,?)"
-             )) {
-            // xóa snapshot cũ
-            del.setString(1, r);
-            del.executeUpdate();
-
-            int batch = 0;
-            final int BATCH_SIZE = 1000;
-
-            for (int x = region.getMinX(); x <= region.getMaxX(); x++) {
-                for (int y = region.getMinY(); y <= region.getMaxY(); y++) {
-                    for (int z = region.getMinZ(); z <= region.getMaxZ(); z++) {
-                        Block b = w.getBlockAt(x, y, z);
-                        Material mat = b.getType();
-
-                        // lưu cả blockdata để giữ waterlogged/orientation...
-                        String data = null;
-                        try {
-                            BlockData bd = b.getBlockData();
-                            if (bd != null) data = bd.getAsString();
-                        } catch (Throwable ignored) {}
-
-                        ins.setString(1, r);
-                        ins.setString(2, w.getName());
-                        ins.setInt(3, x);
-                        ins.setInt(4, y);
-                        ins.setInt(5, z);
-                        ins.setString(6, mat.name());
-                        ins.setString(7, data);
-                        ins.addBatch();
-
-                        if (++batch >= BATCH_SIZE) {
-                            ins.executeBatch();
-                            batch = 0;
+                            ps.setString(1, key);
+                            ps.setString(2, world.getName());
+                            ps.setInt(3, x);
+                            ps.setInt(4, y);
+                            ps.setInt(5, z);
+                            ps.setString(6, mat.name());
+                            ps.setInt(7, b.getBlockData().getAsString().hashCode());
+                            ps.addBatch();
                         }
                     }
                 }
+
+                ps.executeBatch();
+                conn.commit();
+                return true;
             }
 
-            if (batch > 0) ins.executeBatch();
-
-            conn.commit();
-            return true;
-
         } catch (Exception e) {
-            plugin.getLogger().warning("[RegionSnapshotStore] snapshotRegion failed: " + e.getMessage());
+            plugin.getLogger().log(Level.WARNING,
+                    "[SnapshotStore] snapshotRegion failed: " + region.getName(), e);
             try { conn.rollback(); } catch (Exception ignored) {}
             return false;
         }
     }
 
-    /**
-     * Restore region từ snapshot trong DB.
-     * An toàn cross-version: blockdata parse fail -> fallback Material -> AIR.
-     */
     public synchronized void restoreRegion(DecayRegion region) {
-        if (region == null) return;
-        if (conn == null) return;
+        if (conn == null || region == null) return;
 
-        ensureSchema();
+        World world = Bukkit.getWorld(region.getWorldName());
+        if (world == null) return;
 
-        World w = Bukkit.getWorld(region.getWorldName());
-        if (w == null) return;
-
-        String r = region.getName().toLowerCase();
+        String key = region.getName().toLowerCase();
 
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT x,y,z,material,blockdata FROM region_snapshots WHERE region=? AND world=?"
-        )) {
-            ps.setString(1, r);
-            ps.setString(2, w.getName());
+                "SELECT x,y,z,type FROM region_snapshots WHERE region=?")) {
+
+            ps.setString(1, key);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int x = rs.getInt(1);
                     int y = rs.getInt(2);
                     int z = rs.getInt(3);
-                    String matName = rs.getString(4);
-                    String data = rs.getString(5);
+                    Material mat;
 
-                    Block b = w.getBlockAt(x, y, z);
-
-                    // 1) ưu tiên blockdata
-                    if (data != null && !data.isBlank()) {
-                        try {
-                            BlockData bd = Bukkit.createBlockData(data);
-                            b.setBlockData(bd, false);
-                            continue;
-                        } catch (Throwable ignored) {
-                            // fallback xuống material
-                        }
+                    try {
+                        mat = Material.valueOf(rs.getString(4));
+                    } catch (Exception e) {
+                        continue;
                     }
 
-                    // 2) fallback material (chống lỗi khác version, ví dụ leaf_litter ở 1.21.1)
-                    Material mat = Material.AIR;
-                    if (matName != null) {
-                        try { mat = Material.valueOf(matName); } catch (Exception ignored) {}
-                    }
-                    b.setType(mat, false);
+                    world.getBlockAt(x, y, z).setType(mat, false);
                 }
             }
-        } catch (Exception e) {
-            plugin.getLogger().warning("[RegionSnapshotStore] restoreRegion failed: " + e.getMessage());
-        }
-    }
 
-    public synchronized void deleteSnapshot(String regionName) {
-        if (regionName == null) return;
-        if (conn == null) return;
-        ensureSchema();
-
-        String r = regionName.toLowerCase();
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM region_snapshots WHERE region=?")) {
-            ps.setString(1, r);
-            ps.executeUpdate();
-            conn.commit();
         } catch (Exception e) {
-            plugin.getLogger().warning("[RegionSnapshotStore] deleteSnapshot failed: " + e.getMessage());
-            try { conn.rollback(); } catch (Exception ignored) {}
+            plugin.getLogger().log(Level.WARNING,
+                    "[SnapshotStore] restoreRegion failed: " + region.getName(), e);
         }
     }
 
     public synchronized void renameSnapshotKey(String oldName, String newName) {
-        if (oldName == null || newName == null) return;
         if (conn == null) return;
-        ensureSchema();
 
         String oldKey = oldName.toLowerCase();
         String newKey = newName.toLowerCase();
+
         if (oldKey.equals(newKey)) return;
 
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE region_snapshots SET region=? WHERE region=?")) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE region_snapshots SET region=? WHERE region=?")) {
+
             ps.setString(1, newKey);
             ps.setString(2, oldKey);
             ps.executeUpdate();
             conn.commit();
+
         } catch (Exception e) {
-            plugin.getLogger().warning("[RegionSnapshotStore] renameSnapshotKey failed: " + e.getMessage());
-            try { conn.rollback(); } catch (Exception ignored) {}
+            plugin.getLogger().log(Level.WARNING,
+                    "[SnapshotStore] renameSnapshotKey failed", e);
         }
     }
 }

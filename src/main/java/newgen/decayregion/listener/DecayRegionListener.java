@@ -27,7 +27,11 @@ public class DecayRegionListener implements Listener {
     private final BlockDecayManager blockDecayManager;
     private final SelectionManager selectionManager;
 
-    public DecayRegionListener(RegionManager regionManager, BlockDecayManager blockDecayManager, SelectionManager selectionManager) {
+    public DecayRegionListener(
+            RegionManager regionManager,
+            BlockDecayManager blockDecayManager,
+            SelectionManager selectionManager
+    ) {
         this.regionManager = regionManager;
         this.blockDecayManager = blockDecayManager;
         this.selectionManager = selectionManager;
@@ -43,9 +47,6 @@ public class DecayRegionListener implements Listener {
         blockDecayManager.handleBucketEmpty(event);
     }
 
-    /**
-     * ✅ FIX: Nếu đang cầm Decay wand thì CHẶN phá block (để left-click chỉ dùng chọn pos1)
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
@@ -66,43 +67,37 @@ public class DecayRegionListener implements Listener {
         blockDecayManager.handleBlockForm(event);
     }
 
-    /**
-     * ✅ FIX: Decay wand selection
-     * - Left-click block -> pos1
-     * - Right-click block -> pos2
-     *
-     * Lưu ý: ignoreCancelled = false để wand vẫn ăn nếu nơi khác cancel interact.
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent event) {
-        // ✅ FIX 1.21.8: event bắn 2 lần (MAIN_HAND + OFF_HAND) -> chỉ xử lý MAIN_HAND
         if (event.getHand() != EquipmentSlot.HAND) return;
 
         Player player = event.getPlayer();
 
-        // 1) wand first
         if (isDecayWand(player.getInventory().getItemInMainHand())) {
             if (event.getClickedBlock() == null) return;
 
             switch (event.getAction()) {
                 case LEFT_CLICK_BLOCK -> {
-                    selectionManager.setPos1(player.getUniqueId(), event.getClickedBlock().getLocation());
-                    MessageUtil.send(player, "&aĐã đặt &bpos1&a.");
+                    selectionManager.setPos1(
+                            player.getUniqueId(),
+                            event.getClickedBlock().getLocation()
+                    );
+                    MessageUtil.send(player, "&aPos1 has been set.");
                     event.setCancelled(true);
                 }
                 case RIGHT_CLICK_BLOCK -> {
-                    selectionManager.setPos2(player.getUniqueId(), event.getClickedBlock().getLocation());
-                    MessageUtil.send(player, "&aĐã đặt &bpos2&a.");
+                    selectionManager.setPos2(
+                            player.getUniqueId(),
+                            event.getClickedBlock().getLocation()
+                    );
+                    MessageUtil.send(player, "&aPos2 has been set.");
                     event.setCancelled(true);
                 }
-                default -> {
-                    // ignore
-                }
+                default -> {}
             }
             return;
         }
 
-        // 2) các logic khác
         blockDecayManager.handleRightClick(event);
     }
 
@@ -111,19 +106,13 @@ public class DecayRegionListener implements Listener {
         blockDecayManager.handleBucketFill(event);
     }
 
-    /**
-     * Wand đúng theo file của bạn:
-     * - Material.BLAZE_ROD
-     * - DisplayName: "§bDecayRegion Wand"
-     */
     private boolean isDecayWand(ItemStack item) {
         if (item == null || item.getType() != Material.BLAZE_ROD) return false;
 
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasDisplayName()) return false;
 
-        String name = meta.getDisplayName();
-        String stripped = ChatColor.stripColor(name);
+        String stripped = ChatColor.stripColor(meta.getDisplayName());
         return stripped != null && stripped.equalsIgnoreCase("DecayRegion Wand");
     }
 }

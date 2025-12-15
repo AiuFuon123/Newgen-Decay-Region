@@ -32,10 +32,6 @@ public class PlacedDataStore {
         reload();
     }
 
-    // =========================
-    // LIFECYCLE
-    // =========================
-
     public synchronized void reload() {
         closeQuietly();
 
@@ -44,16 +40,13 @@ public class PlacedDataStore {
 
             this.conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
 
-            // ✅ tạo schema chắc chắn trong autoCommit=true
             this.conn.setAutoCommit(true);
             initPragmas();
-            initSchema(); // create tables + indexes (auto-commit)
+            initSchema();
             this.schemaReady = true;
 
-            // ✅ sau đó chuyển sang batch commit (autoCommit=false)
             this.conn.setAutoCommit(false);
 
-            // Optional one-time migration
             migrateFromYamlIfPresent();
 
         } catch (Exception e) {
@@ -92,10 +85,6 @@ public class PlacedDataStore {
         conn = null;
         schemaReady = false;
     }
-
-    // =========================
-    // SCHEMA
-    // =========================
 
     private void initPragmas() {
         try (Statement st = conn.createStatement()) {
@@ -171,15 +160,10 @@ public class PlacedDataStore {
         }
     }
 
-    // =========================
-    // MIGRATION (legacy YAML -> DB)
-    // =========================
-
     private void migrateFromYamlIfPresent() {
         File legacy = new File(plugin.getDataFolder(), "placed-data.yml");
         if (!legacy.exists()) return;
 
-        // if db already has rows -> skip
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery("SELECT " +
                      "(SELECT COUNT(*) FROM placed_blocks) + " +
@@ -266,10 +250,6 @@ public class PlacedDataStore {
             try { conn.rollback(); } catch (Exception ignored) {}
         }
     }
-
-    // =========================
-    // RECORD API
-    // =========================
 
     public synchronized void recordBlock(DecayRegion region, Location loc) {
         if (region == null || loc == null || loc.getWorld() == null) return;
@@ -428,10 +408,6 @@ public class PlacedDataStore {
         }
     }
 
-    // =========================
-    // FORCE CLEAR
-    // =========================
-
     private void floodClearFluid(String regionNameLower, Location start, Material fluidType, int maxFlood) {
         if (start == null || start.getWorld() == null) return;
 
@@ -479,7 +455,6 @@ public class PlacedDataStore {
 
         String r = regionName.toLowerCase();
 
-        // 1) blocks
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT world,x,y,z FROM placed_blocks WHERE region=?")) {
             ps.setString(1, r);
@@ -495,7 +470,6 @@ public class PlacedDataStore {
             plugin.getLogger().warning("[PlacedDataStore] forceClear blocks failed: " + e.getMessage());
         }
 
-        // 2) entities
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT uuid FROM placed_entities WHERE region=?")) {
             ps.setString(1, r);
@@ -515,7 +489,6 @@ public class PlacedDataStore {
             plugin.getLogger().warning("[PlacedDataStore] forceClear entities failed: " + e.getMessage());
         }
 
-        // 3) fluids
         int maxFlood = plugin.getCfg().getInt("force-clear.max-flood-blocks", 500000);
 
         try (PreparedStatement ps = conn.prepareStatement(
@@ -537,7 +510,6 @@ public class PlacedDataStore {
             plugin.getLogger().warning("[PlacedDataStore] forceClear fluids failed: " + e.getMessage());
         }
 
-        // 4) wipe rows
         synchronized (this) {
             try (PreparedStatement a = conn.prepareStatement("DELETE FROM placed_blocks WHERE region=?");
                  PreparedStatement b = conn.prepareStatement("DELETE FROM placed_entities WHERE region=?");
@@ -592,10 +564,6 @@ public class PlacedDataStore {
         plugin.getLogger().info("Force-cleared blocks/entities/WATER/LAVA from data.db on startup.");
     }
 
-    // =========================
-    // RENAME
-    // =========================
-
     public synchronized void renameRegionKey(String oldName, String newName) {
         if (oldName == null || newName == null) return;
         if (conn == null) return;
@@ -623,10 +591,6 @@ public class PlacedDataStore {
             plugin.getLogger().warning("[PlacedDataStore] renameRegionKey failed: " + e.getMessage());
         }
     }
-
-    // =========================
-    // UTILS
-    // =========================
 
     private static long pack(int x, int y, int z) {
         long lx = (x & 0x3FFFFFFL);

@@ -8,7 +8,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -59,18 +58,15 @@ public class DecayMenuListener implements Listener {
 
         int slot = event.getRawSlot();
 
-        // ===== MAIN =====
         if (title.startsWith(DecayMenuGUI.TITLE_MAIN_PREFIX)) {
             int currentPage = parsePage(title);
 
-            // close
             if (slot == 49) {
                 click(player);
                 player.closeInventory();
                 return;
             }
 
-            // prev page (45) - chỉ chạy nếu là ARROW (nếu không có trang, GUI đã đặt glass)
             if (slot == 45 && clicked.getType() == Material.ARROW) {
                 click(player);
                 int prev = currentPage - 1;
@@ -80,7 +76,6 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // next page (53) - chỉ chạy nếu là ARROW
             if (slot == 53 && clicked.getType() == Material.ARROW) {
                 click(player);
                 int next = currentPage + 1;
@@ -89,7 +84,6 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // click region book
             if (clicked.getType() == Material.BOOK) {
                 String regionName = stripColor(clicked.getItemMeta() != null ? clicked.getItemMeta().getDisplayName() : null);
                 if (regionName == null || regionName.isEmpty()) return;
@@ -99,7 +93,6 @@ public class DecayMenuListener implements Listener {
 
                 lastMainPage.put(player.getUniqueId(), currentPage);
 
-                // ✅ NEW: right click delete confirm
                 ClickType ct = event.getClick();
                 if (ct == ClickType.RIGHT || ct == ClickType.SHIFT_RIGHT) {
                     click(player);
@@ -112,7 +105,6 @@ public class DecayMenuListener implements Listener {
             return;
         }
 
-        // ===== REGION MANAGE =====
         if (title.startsWith(DecayMenuGUI.TITLE_REGION_PREFIX)) {
             String regionName = title.substring(DecayMenuGUI.TITLE_REGION_PREFIX.length());
             DecayRegion region = regionManager.getRegion(regionName);
@@ -121,7 +113,6 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // slot 11 decaytime, 12 forceclear, 13 teleport, 14 saveregion, 15 rename
             if (slot == 11) {
                 click(player);
                 DecayMenuGUI.openTimeEditor(player, region);
@@ -138,7 +129,7 @@ public class DecayMenuListener implements Listener {
                 if (tp != null) {
                     player.teleport(tp);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
-                    MessageUtil.send(player, "&aĐã teleport tới region &e" + region.getName() + "&a.");
+                    MessageUtil.send(player, "&aTeleported to region &e" + region.getName() + "&a.");
                 }
                 return;
             }
@@ -152,11 +143,10 @@ public class DecayMenuListener implements Listener {
                 renameWaiting.put(player.getUniqueId(), region.getName());
                 player.closeInventory();
                 player.playSound(player.getLocation(), Sound.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 1f, 1f);
-                MessageUtil.send(player, "&eNhập tên mới cho region &b" + region.getName() + "&e trong chat. Gõ &ccancel&e để hủy.");
+                MessageUtil.send(player, "&eType a new name for region &b" + region.getName() + "&e in chat. Type &ccancel&e to cancel.");
                 return;
             }
 
-            // back slot 18
             if (slot == 18) {
                 click(player);
                 int page = lastMainPage.getOrDefault(player.getUniqueId(), 1);
@@ -167,7 +157,6 @@ public class DecayMenuListener implements Listener {
             return;
         }
 
-        // ===== TIME EDITOR =====
         if (title.startsWith(DecayMenuGUI.TITLE_TIME_PREFIX)) {
             String regionName = title.substring(DecayMenuGUI.TITLE_TIME_PREFIX.length());
             DecayRegion region = regionManager.getRegion(regionName);
@@ -176,7 +165,6 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // ✅ NEW decaytime slots đầy đủ
             if (slot == 10) {
                 click(player);
                 region.setDecaySeconds(region.getDecaySeconds() + 1);
@@ -220,7 +208,6 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // back 22
             if (slot == 22) {
                 click(player);
                 DecayMenuGUI.openRegionManage(player, region);
@@ -229,7 +216,6 @@ public class DecayMenuListener implements Listener {
             return;
         }
 
-        // ===== FORCE CLEAR CONFIRM =====
         if (title.startsWith(DecayMenuGUI.TITLE_CONFIRM_FORCE_PREFIX)) {
             String regionName = title.substring(DecayMenuGUI.TITLE_CONFIRM_FORCE_PREFIX.length());
             DecayRegion region = regionManager.getRegion(regionName);
@@ -238,7 +224,6 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // confirm 11, cancel 15
             if (slot == 11) {
                 click(player);
 
@@ -250,7 +235,7 @@ public class DecayMenuListener implements Listener {
                 }
 
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
-                MessageUtil.send(player, "&aĐã force clear + restore snapshot region &e" + region.getName() + "&a.");
+                MessageUtil.send(player, "&aForce cleared + restored snapshot for region &e" + region.getName() + "&a.");
                 DecayMenuGUI.openRegionManage(player, region);
                 return;
             }
@@ -265,7 +250,6 @@ public class DecayMenuListener implements Listener {
             return;
         }
 
-        // ===== SAVE CONFIRM =====
         if (title.startsWith(DecayMenuGUI.TITLE_CONFIRM_SAVE_PREFIX)) {
             String regionName = title.substring(DecayMenuGUI.TITLE_CONFIRM_SAVE_PREFIX.length());
             DecayRegion region = regionManager.getRegion(regionName);
@@ -274,17 +258,16 @@ public class DecayMenuListener implements Listener {
                 return;
             }
 
-            // confirm 11, cancel 15
             if (slot == 11) {
                 click(player);
 
                 boolean ok = plugin.getSnapshotStore() != null && plugin.getSnapshotStore().snapshotRegion(region);
                 if (ok) {
                     player.playSound(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1f, 1f);
-                    MessageUtil.send(player, "&aĐã save snapshot cho region &e" + region.getName() + "&a.");
+                    MessageUtil.send(player, "&aSaved snapshot for region &e" + region.getName() + "&a.");
                 } else {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-                    MessageUtil.send(player, "&cKhông thể save snapshot.");
+                    MessageUtil.send(player, "&cFailed to save snapshot.");
                 }
 
                 DecayMenuGUI.openRegionManage(player, region);
@@ -301,7 +284,6 @@ public class DecayMenuListener implements Listener {
             return;
         }
 
-        // ===== DELETE CONFIRM (right click main) =====
         if (title.startsWith(DecayMenuGUI.TITLE_CONFIRM_DELETE_PREFIX)) {
             String regionName = title.substring(DecayMenuGUI.TITLE_CONFIRM_DELETE_PREFIX.length());
             DecayRegion region = regionManager.getRegion(regionName);
@@ -313,7 +295,6 @@ public class DecayMenuListener implements Listener {
             if (slot == 11) {
                 click(player);
 
-                // clear placed-data
                 try {
                     if (plugin.getPlacedDataStore() != null) {
                         plugin.getPlacedDataStore().forceClearRegion(region.getName());
@@ -325,10 +306,10 @@ public class DecayMenuListener implements Listener {
 
                 if (removed) {
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.1f);
-                    MessageUtil.send(player, "&aĐã xóa region &e" + region.getName() + "&a.");
+                    MessageUtil.send(player, "&aDeleted region &e" + region.getName() + "&a.");
                 } else {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-                    MessageUtil.send(player, "&cKhông thể xóa region &e" + region.getName() + "&c.");
+                    MessageUtil.send(player, "&cFailed to delete region &e" + region.getName() + "&c.");
                 }
 
                 DecayMenuGUI.openMain(player, plugin, regionManager, lastMainPage.getOrDefault(player.getUniqueId(), 1));
@@ -356,7 +337,7 @@ public class DecayMenuListener implements Listener {
             renameWaiting.remove(player.getUniqueId());
             Bukkit.getScheduler().runTask(plugin, () -> {
                 player.playSound(player.getLocation(), Sound.UI_TOAST_IN, 1f, 1f);
-                MessageUtil.send(player, "&7Đã hủy đổi tên.");
+                MessageUtil.send(player, "&7Rename cancelled.");
                 DecayRegion region = regionManager.getRegion(oldName);
                 if (region != null) DecayMenuGUI.openRegionManage(player, region);
                 else DecayMenuGUI.openMain(player, plugin, regionManager, lastMainPage.getOrDefault(player.getUniqueId(), 1));
@@ -368,14 +349,16 @@ public class DecayMenuListener implements Listener {
         if (newName.isBlank()) {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-                MessageUtil.send(player, "&cTên không hợp lệ. Chỉ dùng chữ/số/_/-.");});
+                MessageUtil.send(player, "&cInvalid name. Only letters/numbers/_/- are allowed.");
+            });
             return;
         }
 
         if (regionManager.getRegion(newName) != null) {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-                MessageUtil.send(player, "&cTên &e" + newName + "&c đã tồn tại.");});
+                MessageUtil.send(player, "&cName &e" + newName + "&c already exists.");
+            });
             return;
         }
 
@@ -385,7 +368,7 @@ public class DecayMenuListener implements Listener {
             boolean ok = regionManager.renameRegion(oldName, newName);
             if (!ok) {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-                MessageUtil.send(player, "&cKhông thể đổi tên region.");
+                MessageUtil.send(player, "&cFailed to rename region.");
                 DecayMenuGUI.openMain(player, plugin, regionManager, lastMainPage.getOrDefault(player.getUniqueId(), 1));
                 return;
             }
@@ -398,7 +381,7 @@ public class DecayMenuListener implements Listener {
             }
 
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1f, 1f);
-            MessageUtil.send(player, "&aĐã đổi tên region &e" + oldName + " &a-> &b" + newName + "&a.");
+            MessageUtil.send(player, "&aRenamed region &e" + oldName + " &a-> &b" + newName + "&a.");
 
             DecayRegion region = regionManager.getRegion(newName);
             if (region != null) DecayMenuGUI.openRegionManage(player, region);
@@ -425,7 +408,7 @@ public class DecayMenuListener implements Listener {
         int idx = title.lastIndexOf('(');
         int idx2 = title.lastIndexOf(')');
         if (idx < 0 || idx2 < 0 || idx2 <= idx) return 1;
-        String inside = title.substring(idx + 1, idx2); // "1/3"
+        String inside = title.substring(idx + 1, idx2);
         String[] parts = inside.split("/");
         if (parts.length < 1) return 1;
         try {
