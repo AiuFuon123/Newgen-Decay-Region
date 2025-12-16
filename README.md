@@ -14,7 +14,7 @@
 
   - Everything is designed to be safe, fast, and manageable in-game.
 
-## Video Preview:<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/h5WoG0wjPjM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+## Video Preview:
 
 ## 🧩 Core Features
 ### ✅ Region creation using a selection wand (pos1 / pos2)
