@@ -146,5 +146,3 @@ snapshot:
   - Temporary survival islands
 
   - Any area where you want automatic cleanup + quick reset
-
-*If you want a short version (for Modrinth summary field) or a feature banner-style version with emojis/format tuned exactly to Modrinth markdown, tell me and I’ll format it to match.*
